@@ -1,0 +1,79 @@
+# Установка helm kubectl
+sudo dnf install helm kubectl // linux fedora
+
+brew install kubectl minikube helm // macos
+
+# Загрузка minikube для линукса
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-latest.x86_64.rpm
+# Установка minikube
+sudo rpm -Uvh minikube-latest.x86_64.rpm
+
+# Запуск minikube с использованием виртуальной машины докер
+minikube start --cpus=2 --memory=4G --vm-driver=docker
+
+# Добавление репозиториев prometheus, grafana, influxdb2 в кластер кубернетиса миникуб
+# 1. Prometheus Grafana
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+# 2. InfluxDB / InfluxDB 2
+helm repo add influxdata https://helm.influxdata.com/
+# 3. Обновление индексов
+helm repo update
+
+# Установка инструметов в кластер
+helm install prometheus prometheus-community/prometheus \
+  --namespace monitoring
+helm install grafana grafana/grafana \
+  --namespace monitoring --create-namespace
+helm install influxdb2 influxdata/influxdb2 \      
+  --namespace monitoring \
+  --set adminUser.password="admin123"
+
+# login: admin password: admin123
+kubectl get secret --namespace monitoring influxdb2-auth \
+  -o jsonpath="{.data.admin-password}" | base64 --decode && echo
+
+# login: admin password: LkFIFZBGv3dBHp1sdcqW91aTTKVWtqYyUG3tEiQF
+kubectl get secret --namespace monitoring grafana \
+  -o jsonpath="{.data.admin-password}" | base64 --decode && echo
+
+Запуск графических интерфейсов
+kubectl port-forward svc/grafana 3000:80 -n monitoring // grafana
+kubectl port-forward svc/prometheus-server 9090:80 -n monitoring // prometheus
+kubectl port-forward svc/influxdb2 8086:80 -n monitorinig // prometheus
+
+# Добавление графического интерфейса для кластера кубернетис
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard --create-namespace --namespace kubernetes-dashboard
+
+чтобы применить данный кофиг необходимо ввести следующую команду в терминале
+kubectl apply -f config.yaml
+
+# Для запуска веб интерфейса необходимо использовать следующую комманду
+kubectl port-forward svc/kubernetes-dashboard-kong-proxy 8443:443 -n kubernetes-dashboard
+
+# Создание пользователя в дашборде
+# Создание конфига для новго пользоватлея со всеми правами
+
+// config.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kubernetes-dashboard
+  
+Получение его токена
+kubectl -n kubernetes-dashboard create token admin-user

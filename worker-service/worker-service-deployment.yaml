@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-service
+  labels:
+    app: worker-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-service
+  template:
+    metadata:
+      labels:
+        app: worker-service
+    spec:
+      containers:
+        - name: worker
+          image: unicornmarlin12/worker-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: API_URL
+              value: "http://api-service.monitoring.svc.cluster.local:8080/metrics"
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: 500m
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+spec:
+  selector:
+    app: worker-service
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
