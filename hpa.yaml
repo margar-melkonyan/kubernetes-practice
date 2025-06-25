@@ -15,4 +15,11 @@ spec:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 20
+        averageUtilization: 40
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 10   # ждем только 30 секунд перед масштабированием вниз
+      policies:
+      - type: Pods
+        value: 1                       # уменьшаем максимум на 1 под за 30 секунд
+        periodSeconds: 10

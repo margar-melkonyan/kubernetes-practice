@@ -158,13 +158,25 @@ func gatherAndSendStats(apiURL string) {
 func main() {
 	prometheus.MustRegister(processedTasks)
 	prometheus.MustRegister(processingDuration)
-
 	atomicTotalDuration.Store(float64(0))
 
 	apiURL := os.Getenv("API_URL")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go workloadGenerator(ctx, 5)
+
+	// Цикл включения/отключения нагрузки для автоскейлинга
+	go func() {
+		for {
+			log.Println("🔥 LOAD ON")
+			atomic.StoreInt32(&isActive, 1)
+			time.Sleep(5 * time.Minute)
+
+			log.Println("🧊 LOAD OFF")
+			atomic.StoreInt32(&isActive, 0)
+			time.Sleep(5 * time.Minute)
+		}
+	}()
 
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
@@ -205,7 +217,7 @@ func main() {
 	srv := &http.Server{Addr: ":8080"}
 
 	go func() {
-		log.Println("Starting worker-service on :8080")
+		log.Println("🚀 Starting worker-service on :8080")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("ListenAndServe(): %v", err)
 		}
@@ -215,7 +227,7 @@ func main() {
 	signal.Notify(stop, os.Interrupt)
 	<-stop
 
-	log.Println("Shutting down worker-service...")
+	log.Println("🛑 Shutting down worker-service...")
 	cancel()
 	srv.Shutdown(context.Background())
 }
